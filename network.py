@@ -11,7 +11,7 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.mlp = nn.Sequential(nn.Linear(input_dim, hidden_dim, bias=True), nn.ReLU(inplace=True),
                                  nn.Linear(hidden_dim, output_dim, bias=True), nn.ReLU(inplace=True))
-        
+
     def forward(self, x):
         return self.mlp(x)
 
@@ -33,7 +33,7 @@ class GraphCNN(nn.Module):
             self.pool = gmp
         # Define dropout
         self.drop1 = nn.Dropout(p=0.2)
-    
+
 
     def forward(self, x, data, pertubed=False):
         #x = data.x
@@ -44,7 +44,7 @@ class GraphCNN(nn.Module):
                 x = F.relu(gcn_layer(x, data.edge_index.long()))
             else:
                 x = x + F.relu(gcn_layer(x, data.edge_index.long()))
-            
+
             if pertubed:
                 random_noise = torch.rand_like(x).to(x.device)
                 x = x + torch.sign(x) * F.normalize(random_noise, dim=-1) * 0.1
@@ -67,7 +67,7 @@ class CL_protNET(torch.nn.Module):
         self.pertub = pertub
         self.out_dim = out_dim
         self.one_hot_embed = nn.Embedding(21, 96)
-        self.proj_aa = nn.Linear(96, 512) 
+        self.proj_aa = nn.Linear(96, 512)
         self.pooling = pooling
         #self.proj_spot = nn.Linear(19, 512)
         if esm_embed:
@@ -83,25 +83,25 @@ class CL_protNET(torch.nn.Module):
                         nn.Linear(1024, out_dim),
                         nn.Sigmoid()
         )
-        
+
         self.softmax = nn.Softmax(dim=-1)
-     
+
     def forward(self, data):
 
         x_aa = self.one_hot_embed(data.native_x.long())
         x_aa = self.proj_aa(x_aa)
-        
+
         if self.esm_embed:
             x = data.x.float()
             x_esm = self.proj_esm(x)
             x = F.relu(x_aa + x_esm)
-            
+
         else:
             x = F.relu(x_aa)
 
         gcn_n_feat1, gcn_g_feat1 = self.gcn(x, data)
         if self.pertub:
-            gcn_n_feat2, gcn_g_feat2 = self.gcn(x, data, pertubed=True) 
+            gcn_n_feat2, gcn_g_feat2 = self.gcn(x, data, pertubed=True)
 
             y_pred = self.readout(gcn_g_feat1)
 

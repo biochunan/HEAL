@@ -11,8 +11,16 @@ from torch_geometric.utils import to_dense_batch
 
 class MAB(torch.nn.Module):
     r"""Multihead-Attention Block."""
-    def __init__(self, dim_Q: int, dim_K: int, dim_V: int, num_heads: int,
-                 Conv: Optional[Type] = None, layer_norm: bool = False):
+
+    def __init__(
+        self,
+        dim_Q: int,
+        dim_K: int,
+        dim_V: int,
+        num_heads: int,
+        Conv: Optional[Type] = None,
+        layer_norm: bool = False,
+    ):
         super().__init__()
         self.dim_V = dim_V
         self.num_heads = num_heads
@@ -70,10 +78,9 @@ class MAB(torch.nn.Module):
             mask = torch.cat([mask for _ in range(self.num_heads)], 0)
             attention_score = Q_.bmm(K_.transpose(1, 2))
             attention_score = attention_score / math.sqrt(self.dim_V)
-            A = torch.softmax(mask + attention_score,-1)
+            A = torch.softmax(mask + attention_score, -1)
         else:
-            A = torch.softmax(
-                Q_.bmm(K_.transpose(1, 2)) / math.sqrt(self.dim_V), -1)
+            A = torch.softmax(Q_.bmm(K_.transpose(1, 2)) / math.sqrt(self.dim_V), -1)
 
         out = torch.cat((Q_ + A.bmm(V_)).split(Q.size(0), 0), 2)
 
@@ -90,11 +97,24 @@ class MAB(torch.nn.Module):
 
 class SAB(torch.nn.Module):
     r"""Self-Attention Block."""
-    def __init__(self, in_channels: int, out_channels: int, num_heads: int,
-                 Conv: Optional[Type] = None, layer_norm: bool = False):
+
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        num_heads: int,
+        Conv: Optional[Type] = None,
+        layer_norm: bool = False,
+    ):
         super().__init__()
-        self.mab = MAB(in_channels, in_channels, out_channels, num_heads,
-                       Conv=Conv, layer_norm=layer_norm)
+        self.mab = MAB(
+            in_channels,
+            in_channels,
+            out_channels,
+            num_heads,
+            Conv=Conv,
+            layer_norm=layer_norm,
+        )
 
     def reset_parameters(self):
         self.mab.reset_parameters()
@@ -110,12 +130,20 @@ class SAB(torch.nn.Module):
 
 class PMA(torch.nn.Module):
     r"""Graph pooling with Multihead-Attention."""
-    def __init__(self, channels: int, num_heads: int, num_seeds: int,
-                 Conv: Optional[Type] = None, layer_norm: bool = False):
+
+    def __init__(
+        self,
+        channels: int,
+        num_heads: int,
+        num_seeds: int,
+        Conv: Optional[Type] = None,
+        layer_norm: bool = False,
+    ):
         super().__init__()
         self.S = torch.nn.Parameter(torch.Tensor(1, num_seeds, channels))
-        self.mab = MAB(channels, channels, channels, num_heads, Conv=Conv,
-                       layer_norm=layer_norm)
+        self.mab = MAB(
+            channels, channels, channels, num_heads, Conv=Conv, layer_norm=layer_norm
+        )
 
         self.reset_parameters()
 
@@ -130,7 +158,8 @@ class PMA(torch.nn.Module):
         mask: Optional[Tensor] = None,
     ) -> Tensor:
         return self.mab(self.S.repeat(x.size(0), 1, 1), x, graph, mask)
-    
+
+
 class GraphMultisetTransformer(torch.nn.Module):
     r"""The global Graph Multiset Transformer pooling operator from the
     `"Accurate Learning of Graph Representations
@@ -178,6 +207,7 @@ class GraphMultisetTransformer(torch.nn.Module):
         - **output:** graph features :math:`(|\mathcal{G}|, F_{out})` where
           :math:`|\mathcal{G}|` denotes the number of graphs in the batch
     """
+
     def __init__(
         self,
         in_channels: int,
@@ -186,7 +216,7 @@ class GraphMultisetTransformer(torch.nn.Module):
         Conv: Optional[Type] = None,
         num_nodes: int = 300,
         pooling_ratio: float = 0.25,
-        pool_sequences: List[str] = ['GMPool_G', 'SelfAtt', 'GMPool_I'],
+        pool_sequences: List[str] = ["GMPool_G", "SelfAtt", "GMPool_I"],
         num_heads: int = 4,
         layer_norm: bool = False,
     ):
@@ -207,29 +237,49 @@ class GraphMultisetTransformer(torch.nn.Module):
         self.pools = torch.nn.ModuleList()
         num_out_nodes = math.ceil(num_nodes * pooling_ratio)
         for i, pool_type in enumerate(pool_sequences):
-            if pool_type not in ['GMPool_G', 'GMPool_I', 'SelfAtt']:
-                raise ValueError("Elements in 'pool_sequences' should be one "
-                                 "of 'GMPool_G', 'GMPool_I', or 'SelfAtt'")
+            if pool_type not in ["GMPool_G", "GMPool_I", "SelfAtt"]:
+                raise ValueError(
+                    "Elements in 'pool_sequences' should be one "
+                    "of 'GMPool_G', 'GMPool_I', or 'SelfAtt'"
+                )
 
             if i == len(pool_sequences) - 1:
                 num_out_nodes = 1
 
-            if pool_type == 'GMPool_G':
+            if pool_type == "GMPool_G":
                 self.pools.append(
-                    PMA(hidden_channels, num_heads, num_out_nodes,
-                        Conv=self.Conv, layer_norm=layer_norm))
+                    PMA(
+                        hidden_channels,
+                        num_heads,
+                        num_out_nodes,
+                        Conv=self.Conv,
+                        layer_norm=layer_norm,
+                    )
+                )
                 num_out_nodes = math.ceil(num_out_nodes * self.pooling_ratio)
 
-            elif pool_type == 'GMPool_I':
+            elif pool_type == "GMPool_I":
                 self.pools.append(
-                    PMA(hidden_channels, num_heads, num_out_nodes, Conv=None,
-                        layer_norm=layer_norm))
+                    PMA(
+                        hidden_channels,
+                        num_heads,
+                        num_out_nodes,
+                        Conv=None,
+                        layer_norm=layer_norm,
+                    )
+                )
                 num_out_nodes = math.ceil(num_out_nodes * self.pooling_ratio)
 
-            elif pool_type == 'SelfAtt':
+            elif pool_type == "SelfAtt":
                 self.pools.append(
-                    SAB(hidden_channels, hidden_channels, num_heads, Conv=None,
-                        layer_norm=layer_norm))
+                    SAB(
+                        hidden_channels,
+                        hidden_channels,
+                        num_heads,
+                        Conv=None,
+                        layer_norm=layer_norm,
+                    )
+                )
 
     def reset_parameters(self):
         self.lin1.reset_parameters()
@@ -237,22 +287,23 @@ class GraphMultisetTransformer(torch.nn.Module):
         for pool in self.pools:
             pool.reset_parameters()
 
-
-    def forward(self, x: Tensor, batch: Tensor,
-                edge_index: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self, x: Tensor, batch: Tensor, edge_index: Optional[Tensor] = None
+    ) -> Tensor:
         """"""
         x = self.lin1(x)
         batch_x, mask = to_dense_batch(x, batch)
         mask = (~mask).unsqueeze(1).to(dtype=x.dtype) * -1e9
 
         for i, (name, pool) in enumerate(zip(self.pool_sequences, self.pools)):
-            graph = (x, edge_index, batch) if name == 'GMPool_G' else None
+            graph = (x, edge_index, batch) if name == "GMPool_G" else None
             batch_x = pool(batch_x, graph, mask)
             mask = None
 
         return self.lin2(batch_x.squeeze(1))
 
-
     def __repr__(self) -> str:
-        return (f'{self.__class__.__name__}({self.in_channels}, '
-                f'{self.out_channels}, pool_sequences={self.pool_sequences})')
+        return (
+            f"{self.__class__.__name__}({self.in_channels}, "
+            f"{self.out_channels}, pool_sequences={self.pool_sequences})"
+        )

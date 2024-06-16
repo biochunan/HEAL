@@ -1,4 +1,4 @@
-name: test
+name: heal
 channels:
   - rdkit
   - https://mirrors.bfsu.edu.cn/anaconda/cloud/pytorch
@@ -158,5 +158,3 @@ dependencies:
     - werkzeug==2.2.3
     - wrapt==1.15.0
     - zipp==3.15.0
-prefix: /home/lhlai_pkuhpc/lustre1/wangsw/software/anaconda3/envs/heal
-

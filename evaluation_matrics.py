@@ -11,12 +11,13 @@ from sklearn.metrics import average_precision_score as aupr
 
 import seaborn as sns
 from matplotlib import pyplot as plt
-plt.rc('xtick', labelsize=18)
-plt.rc('ytick', labelsize=18)
-plt.rc('font', family='arial')
+
+plt.rc("xtick", labelsize=18)
+plt.rc("ytick", labelsize=18)
+plt.rc("font", family="arial")
 
 # go.obo
-go_graph = obonet.read_obo(open("data/go-basic.obo", 'r'))
+go_graph = obonet.read_obo(open("data/go-basic.obo", "r"))
 
 
 def bootstrap(Y_true, Y_pred):
@@ -29,8 +30,8 @@ def bootstrap(Y_true, Y_pred):
 def load_test_prots(fn):
     proteins = []
     seqid_mtrx = []
-    with open(fn, 'r') as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=',')
+    with open(fn, "r") as csv_file:
+        csv_reader = csv.reader(csv_file, delimiter=",")
         next(csv_reader, None)
         for row in csv_reader:
             inds = row[1:]
@@ -43,7 +44,7 @@ def load_test_prots(fn):
 
 def load_go2ic_mapping(fn):
     goterm2ic = {}
-    fRead = open(fn, 'r')
+    fRead = open(fn, "r")
     for line in fRead:
         goterm, ic = line.strip().split()
         goterm2ic[goterm] = float(ic)
@@ -56,11 +57,11 @@ def propagate_go_preds(Y_hat, goterms):
     go2id = {go: ii for ii, go in enumerate(goterms)}
     for goterm in goterms:
         if goterm in go_graph:
-            parents = set(goterms).intersection(nx.descendants(go_graph,
-                                                               goterm))
+            parents = set(goterms).intersection(nx.descendants(go_graph, goterm))
             for parent in parents:
-                Y_hat[:, go2id[parent]] = np.maximum(Y_hat[:, go2id[goterm]],
-                                                     Y_hat[:, go2id[parent]])
+                Y_hat[:, go2id[parent]] = np.maximum(
+                    Y_hat[:, go2id[goterm]], Y_hat[:, go2id[parent]]
+                )
 
     return Y_hat
 
@@ -68,19 +69,23 @@ def propagate_go_preds(Y_hat, goterms):
 def propagate_ec_preds(Y_hat, goterms):
     go2id = {go: ii for ii, go in enumerate(goterms)}
     for goterm in goterms:
-        if goterm.find('-') == -1:
-            parent = goterm.split('.')
-            parent[-1] = '-'
+        if goterm.find("-") == -1:
+            parent = goterm.split(".")
+            parent[-1] = "-"
             parent = ".".join(parent)
             if parent in go2id:
-                Y_hat[:, go2id[parent]] = np.maximum(Y_hat[:, go2id[goterm]],
-                                                     Y_hat[:, go2id[parent]])
+                Y_hat[:, go2id[parent]] = np.maximum(
+                    Y_hat[:, go2id[goterm]], Y_hat[:, go2id[parent]]
+                )
 
     return Y_hat
 
-''' helper functions follow '''
-def normalizedSemanticDistance(Ytrue, Ypred, termIC, avg=False, returnRuMi = False):
-    '''
+
+""" helper functions follow """
+
+
+def normalizedSemanticDistance(Ytrue, Ypred, termIC, avg=False, returnRuMi=False):
+    """
     evaluate a set of protein predictions using normalized semantic distance
     value of 0 means perfect predictions, larger values denote worse predictions,
     INPUTS:
@@ -91,25 +96,26 @@ def normalizedSemanticDistance(Ytrue, Ypred, termIC, avg=False, returnRuMi = Fal
         depending on returnRuMi and avg. To get the average sd over all proteins in a batch/dataset
         use avg = True and returnRuMi = False
         To get result per protein, use avg = False
-    '''
+    """
 
     ru = normalizedRemainingUncertainty(Ytrue, Ypred, termIC, False)
     mi = normalizedMisInformation(Ytrue, Ypred, termIC, False)
-    sd = np.sqrt(ru ** 2 + mi ** 2)
+    sd = np.sqrt(ru**2 + mi**2)
 
     if avg:
         ru = np.mean(ru)
         mi = np.mean(mi)
-        sd = np.sqrt(ru ** 2 + mi ** 2)
+        sd = np.sqrt(ru**2 + mi**2)
 
     if not returnRuMi:
         return sd
 
     return [ru, mi, sd]
 
+
 def normalizedRemainingUncertainty(Ytrue, Ypred, termIC, avg=False):
-    num =  np.logical_and(Ytrue == 1, Ypred == 0).astype(float).dot(termIC)
-    denom =  np.logical_or(Ytrue == 1, Ypred == 1).astype(float).dot(termIC)
+    num = np.logical_and(Ytrue == 1, Ypred == 0).astype(float).dot(termIC)
+    denom = np.logical_or(Ytrue == 1, Ypred == 1).astype(float).dot(termIC)
     nru = num / denom
 
     if avg:
@@ -117,9 +123,10 @@ def normalizedRemainingUncertainty(Ytrue, Ypred, termIC, avg=False):
 
     return nru
 
+
 def normalizedMisInformation(Ytrue, Ypred, termIC, avg=False):
-    num =  np.logical_and(Ytrue == 0, Ypred == 1).astype(float).dot(termIC)
-    denom =  np.logical_or(Ytrue == 1, Ypred == 1).astype(float).dot(termIC)
+    num = np.logical_and(Ytrue == 0, Ypred == 1).astype(float).dot(termIC)
+    denom = np.logical_or(Ytrue == 1, Ypred == 1).astype(float).dot(termIC)
     nmi = num / denom
 
     if avg:
@@ -127,30 +134,34 @@ def normalizedMisInformation(Ytrue, Ypred, termIC, avg=False):
 
     return nmi
 
+
 ### prepare the Information content dict beforehand
-with open("data/ic_count.pkl",'rb') as f:
+with open("data/ic_count.pkl", "rb") as f:
     ic_count = pkl.load(f)
-ic_count['bp'] = np.where(ic_count['bp']==0, 1, ic_count['bp'])
-ic_count['mf'] = np.where(ic_count['mf']==0, 1, ic_count['mf'])
-ic_count['cc'] = np.where(ic_count['cc']==0, 1, ic_count['cc'])
+ic_count["bp"] = np.where(ic_count["bp"] == 0, 1, ic_count["bp"])
+ic_count["mf"] = np.where(ic_count["mf"] == 0, 1, ic_count["mf"])
+ic_count["cc"] = np.where(ic_count["cc"] == 0, 1, ic_count["cc"])
 train_ic = {}
-train_ic['bp'] = -np.log2(ic_count['bp'] / 69709)
-train_ic['mf'] = -np.log2(ic_count['mf'] / 69709)
-train_ic['cc'] = -np.log2(ic_count['cc'] / 69709)
+train_ic["bp"] = -np.log2(ic_count["bp"] / 69709)
+train_ic["mf"] = -np.log2(ic_count["mf"] / 69709)
+train_ic["cc"] = -np.log2(ic_count["cc"] / 69709)
+
 
 class Method(object):
     def __init__(self, method_name, pckl_fn):
-        annot = pickle.load(open(pckl_fn, 'rb'))
-        self.Y_true = annot['Y_true']
-        self.Y_pred = annot['Y_pred']
-        self.goterms = annot['goterms']
-        self.gonames = annot['gonames']
-        self.proteins = annot['proteins']
-        self.ont = annot['ontology']
+        annot = pickle.load(open(pckl_fn, "rb"))
+        self.Y_true = annot["Y_true"]
+        self.Y_pred = annot["Y_pred"]
+        self.goterms = annot["goterms"]
+        self.gonames = annot["gonames"]
+        self.proteins = annot["proteins"]
+        self.ont = annot["ontology"]
         self.method_name = method_name
         self._propagate_preds()
-        if self.ont == 'ec':
-            goidx = [i for i, goterm in enumerate(self.goterms) if goterm.find('-') == -1]
+        if self.ont == "ec":
+            goidx = [
+                i for i, goterm in enumerate(self.goterms) if goterm.find("-") == -1
+            ]
             self.Y_true = self.Y_true[:, goidx]
             self.Y_pred = self.Y_pred[:, goidx]
             self.goterms = [self.goterms[idx] for idx in goidx]
@@ -158,7 +169,7 @@ class Method(object):
         self.termIC = train_ic[self.ont]
 
     def _propagate_preds(self):
-        if self.ont == 'ec':
+        if self.ont == "ec":
             self.Y_pred = propagate_ec_preds(self.Y_pred, self.goterms)
         else:
             self.Y_pred = propagate_go_preds(self.Y_pred, self.goterms)
@@ -182,7 +193,7 @@ class Method(object):
         thresh_list = []
 
         for t in range(1, 100):
-            threshold = t/100.0
+            threshold = t / 100.0
             predictions = (preds > threshold).astype(np.int)
 
             m = 0
@@ -195,16 +206,16 @@ class Method(object):
                 num_overlap = len(prot2goterms[i].intersection(pred_gos))
                 if num_pred > 0:
                     m += 1
-                    precision += float(num_overlap)/num_pred
+                    precision += float(num_overlap) / num_pred
                 if num_true > 0:
-                    recall += float(num_overlap)/num_true
+                    recall += float(num_overlap) / num_true
 
             if m > 0:
-                AvgPr = precision/m
-                AvgRc = recall/n
+                AvgPr = precision / m
+                AvgRc = recall / n
 
                 if AvgPr + AvgRc > 0:
-                    F_score = 2*(AvgPr*AvgRc)/(AvgPr + AvgRc)
+                    F_score = 2 * (AvgPr * AvgRc) / (AvgPr + AvgRc)
                     # record in list
                     F_list.append(F_score)
                     AvgPr_list.append(AvgPr)
@@ -225,7 +236,7 @@ class Method(object):
         n = labels.shape[0]
 
         goterms = np.asarray(self.goterms)
-        ont2root = {'bp': 'GO:0008150', 'mf': 'GO:0003674', 'cc': 'GO:0005575'}
+        ont2root = {"bp": "GO:0008150", "mf": "GO:0003674", "cc": "GO:0005575"}
 
         prot2goterms = {}
         for i in range(0, n):
@@ -243,7 +254,7 @@ class Method(object):
         thresh_list = []
 
         for t in range(1, 100):
-            threshold = t/100.0
+            threshold = t / 100.0
             predictions = (preds > threshold).astype(np.int)
 
             m = 0
@@ -252,8 +263,7 @@ class Method(object):
             for i in range(0, n):
                 pred_gos = set()
                 for goterm in goterms[np.where(predictions[i] == 1)[0]]:
-                    pred_gos = pred_gos.union(nx.descendants(go_graph,
-                                                             goterm))
+                    pred_gos = pred_gos.union(nx.descendants(go_graph, goterm))
                     pred_gos.add(goterm)
                 pred_gos.discard(ont2root[self.ont])
 
@@ -262,15 +272,15 @@ class Method(object):
                 num_overlap = len(prot2goterms[i].intersection(pred_gos))
                 if num_pred > 0 and num_true > 0:
                     m += 1
-                    precision += float(num_overlap)/num_pred
-                    recall += float(num_overlap)/num_true
+                    precision += float(num_overlap) / num_pred
+                    recall += float(num_overlap) / num_true
 
             if m > 0:
-                AvgPr = precision/m
-                AvgRc = recall/n
+                AvgPr = precision / m
+                AvgRc = recall / n
 
                 if AvgPr + AvgRc > 0:
-                    F_score = 2*(AvgPr*AvgRc)/(AvgPr + AvgRc)
+                    F_score = 2 * (AvgPr * AvgRc) / (AvgPr + AvgRc)
                     # record in list
                     F_list.append(F_score)
                     AvgPr_list.append(AvgPr)
@@ -285,7 +295,7 @@ class Method(object):
         return AvgRc_list, AvgPr_list, F_list, thresh_list
 
     def _function_centric_aupr(self, keep_pidx=None, keep_goidx=None):
-        """ Compute functon-centric AUPR """
+        """Compute functon-centric AUPR"""
         if keep_pidx is not None:
             Y_true = self.Y_true[keep_pidx]
             Y_pred = self.Y_pred[keep_pidx]
@@ -302,7 +312,7 @@ class Method(object):
         else:
             keep_goidx = np.where(Y_true.sum(axis=0) > 0)[0]
 
-        print ("### Number of functions =%d" % (len(keep_goidx)))
+        print("### Number of functions =%d" % (len(keep_goidx)))
 
         Y_true = Y_true[:, keep_goidx]
         Y_pred = Y_pred[:, keep_goidx]
@@ -313,9 +323,9 @@ class Method(object):
         #    Y_pred = Y_pred[:, goidx]
 
         # micro average
-        micro_aupr = aupr(Y_true, Y_pred, average='micro')
+        micro_aupr = aupr(Y_true, Y_pred, average="micro")
         # macro average
-        macro_aupr = aupr(Y_true, Y_pred, average='macro')
+        macro_aupr = aupr(Y_true, Y_pred, average="macro")
 
         # each function
         aupr_goterms = aupr(Y_true, Y_pred, average=None)
@@ -323,7 +333,7 @@ class Method(object):
         return micro_aupr, macro_aupr, aupr_goterms
 
     def _protein_centric_fmax(self, keep_pidx=None):
-        """ Compute protein-centric AUPR """
+        """Compute protein-centric AUPR"""
         if keep_pidx is not None:
             Y_true = self.Y_true[keep_pidx]
             Y_pred = self.Y_pred[keep_pidx]
@@ -332,12 +342,10 @@ class Method(object):
             Y_pred = self.Y_pred
 
         # compute recall/precision
-        if self.ont in {'mf', 'bp', 'cc'}:
-            Recall, Precision, Fscore, thresholds = self._cafa_go_aupr(Y_true,
-                                                                       Y_pred)
+        if self.ont in {"mf", "bp", "cc"}:
+            Recall, Precision, Fscore, thresholds = self._cafa_go_aupr(Y_true, Y_pred)
         else:
-            Recall, Precision, Fscore, thresholds = self._cafa_ec_aupr(Y_true,
-                                                                       Y_pred)
+            Recall, Precision, Fscore, thresholds = self._cafa_ec_aupr(Y_true, Y_pred)
         return Fscore, Recall, Precision, thresholds
 
     def fmax(self, keep_pidx):
@@ -346,11 +354,13 @@ class Method(object):
         return max(fscore)
 
     def macro_aupr(self, keep_pidx=None, keep_goidx=None):
-        _, macro_aupr, _ = self._function_centric_aupr(keep_pidx=keep_pidx, keep_goidx=keep_goidx)
+        _, macro_aupr, _ = self._function_centric_aupr(
+            keep_pidx=keep_pidx, keep_goidx=keep_goidx
+        )
         return macro_aupr
 
     def smin(self, keep_pidx=None):
-        '''
+        """
         get the minimum normalized semantic distance
         INPUTS:
             Ytrue : Nproteins x Ngoterms, ground truth binary label ndarray (not compressed)
@@ -359,19 +369,25 @@ class Method(object):
             nrThresholds: the number of thresholds to check.
         OUTPUT:
             the minimum nsd that was achieved at the evaluated thresholds
-        '''
+        """
         if keep_pidx is not None:
             Y_true = self.Y_true[keep_pidx]
             Y_pred = self.Y_pred[keep_pidx]
         else:
             Y_true = self.Y_true
             Y_pred = self.Y_pred
-        
+
         nrThresholds = 100
         thresholds = np.linspace(0.0, 1.0, nrThresholds)
         ss = np.zeros(thresholds.shape)
 
         for i, t in enumerate(thresholds):
-            ss[i] = normalizedSemanticDistance(Y_true, (Y_pred >=t).astype(int), self.termIC, avg=True, returnRuMi=False)
+            ss[i] = normalizedSemanticDistance(
+                Y_true,
+                (Y_pred >= t).astype(int),
+                self.termIC,
+                avg=True,
+                returnRuMi=False,
+            )
 
         return np.min(ss)
