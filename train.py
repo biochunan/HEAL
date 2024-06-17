@@ -1,23 +1,27 @@
-from graph_data import GoTermDataset, collate_fn
+import argparse
+import warnings
+
+import numpy as np
+import torch
+import torch.nn.functional as F
+from sklearn import metrics
+from torch.autograd import Variable
 from torch.utils.data import DataLoader
+
+from config import get_config
+from graph_data import GoTermDataset, collate_fn
 from network import CL_protNET
 from nt_xent import NT_Xent
-import torch.nn.functional as F
-import torch
-from torch.autograd import Variable
-from sklearn import metrics
 from utils import log
-import argparse
-from config import get_config
-import numpy as np
-
-import warnings
 
 warnings.filterwarnings("ignore")
 
 
 def train(config, task, suffix):
 
+    # ----------------------------------------
+    # Data
+    # ----------------------------------------
     train_set = GoTermDataset("train", task, config.AF2model)
     pos_weights = torch.tensor(train_set.pos_weights).float()
     valid_set = GoTermDataset("val", task, config.AF2model)
@@ -28,10 +32,17 @@ def train(config, task, suffix):
         valid_set, batch_size=config.batch_size, shuffle=False, collate_fn=collate_fn
     )
 
+    # ----------------------------------------
+    # Model
+    # ----------------------------------------
     output_dim = valid_set.y_true.shape[-1]
     model = CL_protNET(output_dim, config.esmembed, config.pooling, config.contrast).to(
         config.device
     )
+
+    # ----------------------------------------
+    # Loss and Optimizer
+    # ----------------------------------------
     optimizer = torch.optim.Adam(
         params=model.parameters(),
         **config.optimizer,
@@ -39,13 +50,15 @@ def train(config, task, suffix):
     # scheduler = torch.optim.lr_scheduler.StepLR(optimizer, **config.scheduler)
     bce_loss = torch.nn.BCELoss(reduce=False)
 
+    # ----------------------------------------
+    # Training
+    # ----------------------------------------
     train_loss = []
     val_loss = []
     val_aupr = []
     val_Fmax = []
     es = 0
     y_true_all = valid_set.y_true.float().reshape(-1)
-
     for ith_epoch in range(config.max_epochs):
         # scheduler.step()
         for idx_batch, batch in enumerate(train_loader):
@@ -82,6 +95,9 @@ def train(config, task, suffix):
         y_pred_all = []
         n_nce_all = []
 
+        # ----------------------------------------
+        # Evaluation
+        # ----------------------------------------
         with torch.no_grad():
             for idx_batch, batch in enumerate(val_loader):
                 if config.contrast:

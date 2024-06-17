@@ -1,10 +1,11 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, GATConv
-from pool import GraphMultisetTransformer
-from torch_geometric.utils import to_dense_batch
+from torch_geometric.nn import GATConv, GCNConv
 from torch_geometric.nn import global_max_pool as gmp
+from torch_geometric.utils import to_dense_batch
+
+from pool import GraphMultisetTransformer
 
 
 class MLP(nn.Module):
@@ -39,13 +40,13 @@ class GraphCNN(nn.Module):
         self.pooling = pooling
         if self.pooling == "MTP":
             self.pool = GraphMultisetTransformer(
-                512,
-                256,
-                512,
-                None,
-                10000,
-                0.25,
-                ["GMPool_G", "GMPool_G"],
+                in_channels=512,
+                hidden_channels=256,
+                out_channels=512,
+                Conv=None,
+                num_nodes=10000,
+                pooling_ratio=0.25,
+                pool_sequences=["GMPool_G", "GMPool_G"],
                 num_heads=8,
                 layer_norm=True,
             )
@@ -54,7 +55,7 @@ class GraphCNN(nn.Module):
         # Define dropout
         self.drop1 = nn.Dropout(p=0.2)
 
-    def forward(self, x, data, pertubed=False):
+    def forward(self, x, data, perturbed=False):
         # x = data.x
         # Compute graph convolutional part
         x = self.drop1(x)
@@ -64,7 +65,7 @@ class GraphCNN(nn.Module):
             else:
                 x = x + F.relu(gcn_layer(x, data.edge_index.long()))
 
-            if pertubed:
+            if perturbed:
                 random_noise = torch.rand_like(x).to(x.device)
                 x = x + torch.sign(x) * F.normalize(random_noise, dim=-1) * 0.1
         if self.pooling == "MTP":
@@ -79,10 +80,10 @@ class GraphCNN(nn.Module):
 
 
 class CL_protNET(torch.nn.Module):
-    def __init__(self, out_dim, esm_embed=True, pooling="MTP", pertub=False):
+    def __init__(self, out_dim, esm_embed=True, pooling="MTP", perturb=False):
         super(CL_protNET, self).__init__()
         self.esm_embed = esm_embed
-        self.pertub = pertub
+        self.perturb = perturb
         self.out_dim = out_dim
         self.one_hot_embed = nn.Embedding(21, 96)
         self.proj_aa = nn.Linear(96, 512)
@@ -118,8 +119,8 @@ class CL_protNET(torch.nn.Module):
             x = F.relu(x_aa)
 
         gcn_n_feat1, gcn_g_feat1 = self.gcn(x, data)
-        if self.pertub:
-            gcn_n_feat2, gcn_g_feat2 = self.gcn(x, data, pertubed=True)
+        if self.perturb:
+            gcn_n_feat2, gcn_g_feat2 = self.gcn(x, data, perturbed=True)
 
             y_pred = self.readout(gcn_g_feat1)
 
