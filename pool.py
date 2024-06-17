@@ -9,6 +9,7 @@ from torch_geometric.nn import GCNConv
 from torch_geometric.utils import to_dense_batch
 
 
+# Multi-head Attention Block
 class MAB(torch.nn.Module):
     r"""Multihead-Attention Block."""
 
@@ -95,6 +96,7 @@ class MAB(torch.nn.Module):
         return out
 
 
+# Self-Attention Block
 class SAB(torch.nn.Module):
     r"""Self-Attention Block."""
 
@@ -128,6 +130,7 @@ class SAB(torch.nn.Module):
         return self.mab(x, x, graph, mask)
 
 
+# Graph Pooling with Multi-head Attention
 class PMA(torch.nn.Module):
     r"""Graph pooling with Multihead-Attention."""
 
