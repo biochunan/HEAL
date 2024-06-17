@@ -46,7 +46,7 @@
     ],
     "mounts": [
         // Add any extra bind mounts here
-        "source=/mnt/Data/wwPDB,target=/wwPDB,type=bind",
+        "source=/mnt,target=/mnt,type=bind"
     ],
     "remoteUser": "vscode",
     "overrideCommand": false,
